@@ -9,6 +9,7 @@ local VehicleSpawned = false
 local selectedVeh = nil
 local ranWorkThread = false
 
+local markedVehiclesBlips = {}
 -- Functions
 
 local function deliverVehicle(vehicle)
@@ -235,6 +236,19 @@ RegisterNetEvent('QBCore:Client:OnJobUpdate', function(JobInfo)
         EndTextCommandSetBlipName(TowVehBlip)
 
         RunWorkThread()
+        
+        QBCore.Functions.TriggerCallback('qb-tow:getMarkedVehicles', function(markedVehicles)
+            for i,v in ipairs(markedVehicles) do 
+                TriggerEvent('qb-tow:client:alertForMarkedVehicle', v.plate. v.coords, false)
+            end
+        end)
+    else
+        for i = 1, #markedVehiclesBlips do
+            if DoesBlipExist(markedVehiclesBlips[i]) then
+                RemoveBlip(markedVehiclesBlips[i].blip)
+            end
+        end
+        markedVehiclesBlips = {}
     end
 end)
 
@@ -267,7 +281,6 @@ RegisterNetEvent('jobs:client:ToggleNpc', function()
         end
     end
 end)
-
 RegisterNetEvent('qb-tow:client:TowVehicle', function()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), true)
     if isTowVehicle(vehicle) then
@@ -303,6 +316,18 @@ RegisterNetEvent('qb-tow:client:TowVehicle', function()
                             AttachEntityToEntity(targetVehicle, vehicle, GetEntityBoneIndexByName(vehicle, 'bodyshell'), 0.0, -1.5 + -0.85, 0.0 + 1.15, 0, 0, 0, 1, 1, 0, 1, 0, 1)
                             FreezeEntityPosition(targetVehicle, true)
                             CurrentTow = targetVehicle
+                            
+                            QBCore.Functions.TriggerCallback('qb-tow:IsVehMarked', function(isMarked)
+                                if isMarked then
+                                    QBCore.Functions.Notify("You have picked up a vehicle marked for towing")
+                                    for i = 1, #markedVehiclesBlips do
+                                        if markedVehiclesBlips[i].plate == QBCore.Shared.Trim(GetVehicleNumberPlateText(targetVehicle)) then
+                                            RemoveBlip(markedVehiclesBlips[i].blip)
+                                        end
+                                    end
+                                end 
+                            end, GetVehicleNumberPlateText(targetVehicle))
+
                             if NpcOn then
                                 RemoveBlip(CurrentBlip)
                                 QBCore.Functions.Notify("Take The Vehicle To Hayes Depot", "success", 5000)
@@ -343,6 +368,14 @@ RegisterNetEvent('qb-tow:client:TowVehicle', function()
                     local targetPos = GetEntityCoords(CurrentTow)
                     if #(targetPos - vector3(Config.Locations["vehicle"].coords.x, Config.Locations["vehicle"].coords.y, Config.Locations["vehicle"].coords.z)) < 25.0 then
                         deliverVehicle(CurrentTow)
+                        TriggerServerEvent('qb-tow:server:deliverVehicle', GetVehicleNumberPlateText(CurrentTow))
+                    end
+                else
+                    local targetPos = GetEntityCoords(CurrentTow)
+                    if #(targetPos - vector3(Config.Locations["vehicle"].coords.x, Config.Locations["vehicle"].coords.y, Config.Locations["vehicle"].coords.z)) < 25.0 then
+                        QBCore.Functions.Notify("You Have Delivered A Vehicle", "success")
+                        TriggerServerEvent('qb-tow:server:deliverVehicle', GetVehicleNumberPlateText(CurrentTow))
+                        DeleteVehicle(CurrentTow)
                     end
                 end
                 CurrentTow = nil
@@ -384,6 +417,73 @@ RegisterNetEvent('qb-tow:client:SelectVehicle', function()
     end
 end)
 
+RegisterNetEvent('qb-tow:client:markVehicle', function()
+    local ped = PlayerPedId()
+    local veh
+    if IsPedInAnyVehicle(ped) then
+        veh = GetVehiclePedIsIn(ped, false)
+    else
+        local coordA = GetEntityCoords(ped, 1)
+        local coordB = GetOffsetFromEntityInWorldCoords(ped, 0.0, 5.0, 0.0)
+        veh = getVehicleInDirection(coordA, coordB)
+    end
+    local fine = exports['qb-input']:ShowInput({
+        header = 'Fine amount',
+        submitText = "mark",
+        inputs = {
+            {
+                type = 'number',
+                isRequired = true,
+                name = 'fine',
+                text = 'Fine citizen will have to pay.'
+            }
+        }
+    })
+    if not fine then 
+        QBCore.Functions.Notify('Fine not entered', 'error')
+        return
+    end
+    TriggerServerEvent('qb-tow:server:markVehicle', GetVehicleNumberPlateText(veh), GetEntityCoords(veh), fine.fine)
+end)
+
+RegisterNetEvent('qb-tow:client:alertForMarkedVehicle', function(plate, coords, notify)
+    local blip = AddBlipForCoord(coords.x, coords.y, coords.z)
+    SetBlipColour(blip, 1)
+    SetBlipScale(blip, 1.7)
+    
+    AddTextEntry('CARBLIP', 'Marked Vehicle ~a~')
+    BeginTextCommandSetBlipName('CARBLIP')
+    AddTextComponentSubstringPlayerName(plate)
+    EndTextCommandSetBlipName(blip)
+
+    table.insert(markedVehiclesBlips, {blip = blip, plate = plate})
+    if Config.AutoRemoveMarkedVehBlips then
+        Citizen.CreateThread(function()
+            
+            Citizen.Wait(1000 * 60 * 10)
+            if DoesBlipExist(blip) then
+                RemoveBlip(blip)
+            end
+        end)
+    end
+
+    if notify then
+        QBCore.Functions.Notify("A vehicle for towing was marked by service worker.")
+        TriggerEvent('chatMessage', "JOB", 'rgba(50, 150, 120)', ('Vehicle to tow was marked on your gps. Plate: %s'):format(plate))
+    end
+end)
+
+RegisterNetEvent('qb-tow:client:deleteMarkedVeh', function(plate, coords, notify)
+    for i = 1, #markedVehiclesBlips do
+        if markedVehiclesBlips[i].plate == plate then
+            RemoveBlip(markedVehiclesBlips[i].blip)
+            table.remove(list, i)
+        end
+    end
+
+    QBCore.Functions.Notify("A marked vehicle was picked up by your co-worker.")
+end)
+
 -- Threads
 function RunWorkThread()
     if not ranWorkThread then
@@ -392,7 +492,9 @@ function RunWorkThread()
         CreateThread(function()
             local shownHeader = false
 
-            while LocalPlayer.state.isLoggedIn and PlayerJob.name == "tow" do
+            --TODO: change back
+            -- while LocalPlayer.state.isLoggedIn and PlayerJob.name == "tow" do
+            while true and PlayerJob.name == "tow" do
                 local sleep = 1000
                 local pos = GetEntityCoords(PlayerPedId())
                 local vehicleCoords = vector3(Config.Locations["vehicle"].coords.x, Config.Locations["vehicle"].coords.y, Config.Locations["vehicle"].coords.z)
