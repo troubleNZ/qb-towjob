@@ -1,6 +1,7 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 local PaymentTax = 15
 local Bail = {}
+local MarkedVehicles = {}
 
 RegisterNetEvent('qb-tow:server:DoBail', function(bool, vehInfo)
     local src = source
@@ -56,6 +57,56 @@ RegisterNetEvent('qb-tow:server:11101110', function(drops)
     Player.Functions.AddJobReputation(1)
     Player.Functions.AddMoney("bank", payment, "tow-salary")
     TriggerClientEvent('chatMessage', source, "JOB", "warning", "You Received Your Salary From: $"..payment..", Gross: $"..price.." (From What $"..bonus.." Bonus) In $"..taxAmount.." Tax ("..PaymentTax.."%)")
+end)
+
+RegisterNetEvent('qb-tow:server:markVehicle', function(plate, coords, depotprice)
+    local src = source
+    local plate = QBCore.Shared.Trim(plate)
+
+    for i = 1, #MarkedVehicles do
+        if MarkedVehicles[i].plate == plate then
+            TriggerClientEvent('QBCore:Notify', src, 'This vehicle is already marked for towing', 'error')
+            return
+        end
+    end
+    
+    table.insert(MarkedVehicles, {plate = plate, state = 0, coords = coords})
+    
+    local QBPlayes = QBCore.Functions.GetPlayersOnDuty('tow')
+    for i,v in ipairs(QBPlayes) do
+        TriggerClientEvent('qb-tow:client:alertForMarkedVehicle', v, plate, coords, true)
+    end
+    if not depotprice then depotprice = 0 end
+    exports.oxmysql:update('UPDATE player_vehicles SET depotprice = ? WHERE `plate` = ?', {depotprice, plate})
+
+    TriggerClientEvent('QBCore:Notify', src, 'Vehicle was marked for towing', 'success')
+end)
+
+RegisterNetEvent('qb-tow:server:deliverVehicle', function(plate)
+    local src = source
+    local plate = QBCore.Shared.Trim(plate)
+    local Player = QBCore.Functions.GetPlayer(src)
+    for i = 1, #MarkedVehicles do
+        if MarkedVehicles[i].plate == plate then
+            Player.Functions.AddJobReputation(3)
+            Player.Functions.AddMoney("bank", Config.MarkedVehPayAmount, "tow-salary")
+            return
+        end
+    end
+end)
+
+QBCore.Functions.CreateCallback('qb-tow:IsVehMarked', function(source, cb, plate)
+    local src = source
+    local plate = QBCore.Shared.Trim(plate)
+    for i = 1, #MarkedVehicles do 
+        if MarkedVehicles[i].plate == plate then
+            MarkedVehicles[i].state = 1
+            cb(true)
+            return
+        end
+    end
+    TriggerClientEvent('qb-tow:client:deleteMarkedVeh', -1, plate)
+    cb(false)
 end)
 
 QBCore.Commands.Add("npc", "Toggle Npc Job", {}, false, function(source, args)
