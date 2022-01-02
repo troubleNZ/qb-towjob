@@ -1,6 +1,19 @@
 # qb-towjob
 Towing Job For QB-Core
 
+add this to radial menu for which ever jobs you need it for {
+            id = 'markvehicle',
+            title = 'Mark Vehicle',
+            icon = 'toggle-on',
+            type = 'client',
+            event = 'qb-tow:client:markVehicle',
+            shouldClose = true
+        },
+        
+this will make so you can mark cars on the map fro tow drivers to you can change the amount hte make on tow in the config
+
+see attached link for preview https://streamable.com/n655su
+
 # License
 
     QBCore Framework
