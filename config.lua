@@ -13,12 +13,19 @@ Config.Vehicles = {
 Config.Locations = {
     ["main"] = {
         label = "Towing HQ",
-        coords = vector4(471.39, -1311.03, 29.21, 114.5),
+        --coords = vector4(471.39, -1311.03, 29.21, 114.5),     -- Hayes Mission Row
+        coords = vector4(-192.391, -1164.29, 23.67, 4.2),       -- Gabz Hub
     },
     ["vehicle"] = {
         label = "Flatbed",
-        coords = vector4(489.65, -1331.82, 29.33, 306.5),
+        --coords = vector4(489.65, -1331.82, 29.33, 306.5),
+        coords = vector4(-137.22, -1178.35, 23.77, 94.01),
     },
+    ['destination'] = {
+        
+        coords = vector3(-240.22, -1176.56, 23.13),
+    },
+
     ["towspots"] = {
         [1] =  {model = "sultanrs", coords = vector3(-2480.8720703125, -211.96409606934, 17.397672653198)},
         [2] =  {model = "zion", coords = vector3(-2723.392578125, 13.207388877869, 15.12806892395)},

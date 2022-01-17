@@ -330,8 +330,8 @@ RegisterNetEvent('qb-tow:client:TowVehicle', function()
 
                             if NpcOn then
                                 RemoveBlip(CurrentBlip)
-                                QBCore.Functions.Notify("Take The Vehicle To Hayes Depot", "success", 5000)
-                                CurrentBlip2 = AddBlipForCoord(491.00, -1314.69, 29.25)
+                                QBCore.Functions.Notify("Take The Vehicle To the Depot", "success", 5000)
+                                CurrentBlip2 = AddBlipForCoord(Config.Locations["destination"].coords.x, Config.Locations["destination"].coords.y, Config.Locations["destination"].coords.z)
                                 SetBlipColour(CurrentBlip2, 3)
                                 SetBlipRoute(CurrentBlip2, true)
                                 SetBlipRouteColour(CurrentBlip2, 3)
@@ -372,7 +372,7 @@ RegisterNetEvent('qb-tow:client:TowVehicle', function()
                     end
                 else
                     local targetPos = GetEntityCoords(CurrentTow)
-                    if #(targetPos - vector3(Config.Locations["vehicle"].coords.x, Config.Locations["vehicle"].coords.y, Config.Locations["vehicle"].coords.z)) < 25.0 then
+                    if #(targetPos - vector3(Config.Locations["destination"].coords.x, Config.Locations["destination"].coords.y, Config.Locations["destination"].coords.z)) < 25.0 then
                         QBCore.Functions.Notify("You Have Delivered A Vehicle", "success")
                         TriggerServerEvent('qb-tow:server:deliverVehicle', GetVehicleNumberPlateText(CurrentTow))
                         DeleteVehicle(CurrentTow)
